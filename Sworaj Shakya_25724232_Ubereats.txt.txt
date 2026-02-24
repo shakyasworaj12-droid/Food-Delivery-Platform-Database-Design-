@@ -1,0 +1,156 @@
+ Semester1 , Year 2025
+-- -- Your Name Sworaj Shakya
+-- -- Your Email Address:Sworaj.shakya@student.uts.edu.au
+-- -- Your Student Number 25724232
+-- --
+-- -- This database models a simplified version of an online food delivery application, similar to Uber Eats.
+-- -- It manages customers, restaurants, menu items, delivery drivers, and orders.
+-- -- The application allows customers to place orders from various restaurants, which are then
+-- -- assigned to delivery drivers for delivery. The primary goal is to facilitate the ordering
+-- -- and delivery process of food.
+-- --
+-- -- Inspired by: https://www.ubereats.com/
+
+-- 
+------------------------------
+-- DROP existing tables (reset)
+-- ------------------------------
+DROP TABLE  payment CASCADE;
+DROP TABLE order_item CASCADE;
+DROP TABLE "order" CASCADE;
+DROP TABLE menu_item CASCADE;
+DROP TABLE restaurant CASCADE;
+DROP TABLE delivery_driver CASCADE;
+DROP TABLE customer CASCADE;
+
+-- ------------------------------
+-- CREATE Tables
+-- ------------------------------
+
+-- Customer table
+CREATE TABLE customer (
+    customer_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    address TEXT,
+    phone VARCHAR(15),
+    email VARCHAR(100) UNIQUE NOT NULL,
+    CONSTRAINT chk_customer_phone CHECK (phone ~ '^[0-9]{8,15}$')
+);
+
+-- Restaurant table
+CREATE TABLE restaurant (
+    restaurant_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    address TEXT,
+    phone VARCHAR(15),
+    cuisine_type VARCHAR(50) CHECK (cuisine_type IN ('Italian', 'Japanese', 'Chinese', 'Indian', 'Mexican', 'Other', 'American')),
+    CONSTRAINT chk_restaurant_phone CHECK (phone ~ '^[0-9]{8,15}$')
+);
+
+-- Menu Item table
+CREATE TABLE menu_item (
+    item_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    price NUMERIC(5,2) NOT NULL CHECK (price >= 0),
+    restaurant_id INTEGER NOT NULL,
+    CONSTRAINT fk_menu_item_restaurant FOREIGN KEY (restaurant_id) REFERENCES restaurant(restaurant_id) ON DELETE CASCADE
+);
+
+-- Delivery Driver table
+CREATE TABLE delivery_driver (
+    driver_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    vehicle_type VARCHAR(50) CHECK (vehicle_type IN ('Car', 'Bike', 'Scooter')),
+    phone VARCHAR(15),
+    CONSTRAINT chk_driver_phone CHECK (phone ~ '^[0-9]{8,15}$')
+);
+
+-- Order table
+CREATE TABLE "order" (
+    order_id SERIAL PRIMARY KEY,
+    customer_id INTEGER,
+    restaurant_id INTEGER,
+    order_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    delivery_address TEXT,
+    delivery_status VARCHAR(50) NOT NULL CHECK (delivery_status IN ('Pending', 'Preparing', 'Out for Delivery', 'Delivered', 'Cancelled')),
+    driver_id INTEGER,
+    CONSTRAINT fk_order_customer FOREIGN KEY (customer_id) REFERENCES customer(customer_id) ON DELETE SET NULL,
+    CONSTRAINT fk_order_restaurant FOREIGN KEY (restaurant_id) REFERENCES restaurant(restaurant_id) ON DELETE RESTRICT,
+    CONSTRAINT fk_order_driver FOREIGN KEY (driver_id) REFERENCES delivery_driver(driver_id) ON DELETE SET NULL
+);
+
+-- Order Item (M:N between Order and Menu_Item)
+CREATE TABLE order_item (
+    order_item_id SERIAL PRIMARY KEY,
+    order_id INTEGER NOT NULL,
+    item_id INTEGER NOT NULL,
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    subtotal NUMERIC(10,2) NOT NULL CHECK (subtotal >= 0),
+    CONSTRAINT fk_order_item_order FOREIGN KEY (order_id) REFERENCES "order"(order_id) ON DELETE CASCADE,
+    CONSTRAINT fk_order_item_menu_item FOREIGN KEY (item_id) REFERENCES menu_item(item_id) ON DELETE CASCADE
+);
+
+-- Payment table
+CREATE TABLE payment (
+    payment_id SERIAL PRIMARY KEY,
+    order_id INTEGER NOT NULL,
+    customer_id INTEGER NOT NULL,
+    payment_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    payment_amount NUMERIC(10,2) NOT NULL CHECK (payment_amount >= 0),
+    payment_method VARCHAR(50) CHECK (payment_method IN ('Credit Card', 'Debit Card', 'PayPal', 'Cash', 'Other')),
+    payment_status VARCHAR(50) CHECK (payment_status IN ('Pending', 'Completed', 'Failed', 'Refunded')),
+    CONSTRAINT fk_payment_order FOREIGN KEY (order_id) REFERENCES "order"(order_id) ON DELETE CASCADE,
+    CONSTRAINT fk_payment_customer FOREIGN KEY (customer_id) REFERENCES customer(customer_id) ON DELETE CASCADE
+);
+
+-- ------------------------------
+-- INSERT Sample Data
+-- ------------------------------
+
+-- Customers
+INSERT INTO customer (name, address, phone, email) VALUES
+('Alice Smith', '123 Main St', '0400111222', 'alice@example.com'),
+('Bob Johnson', '123 Main St', '0411222333', 'bob@example.com'),
+('Charlie Davis', '789 Pine Ln', '0422333444', 'charlie@example.com');
+
+-- Restaurants
+INSERT INTO restaurant (name, address, phone, cuisine_type) VALUES
+('Pizza Palace', '101 Elm Rd', '0298765432', 'Italian'),
+('Burger Barn', '202 Oak St', '0387654321', 'American');
+
+-- Menu Items
+INSERT INTO menu_item (name, description, price, restaurant_id) VALUES
+('Pepperoni Pizza', 'Classic pepperoni pizza', 15.99, 1),
+('Margherita Pizza', 'Tomato, mozzarella, basil', 14.50, 1),
+('Cheeseburger', 'Beef patty, cheese, toppings', 9.99, 2),
+('Fries', 'Crispy golden fries', 3.50, 2);
+
+-- Delivery Drivers
+INSERT INTO delivery_driver (name, vehicle_type, phone) VALUES
+('David Wilson', 'Car', '0433444555'),
+('Emily Brown', 'Bike', '0444555666');
+
+-- Orders
+INSERT INTO "order" (customer_id, restaurant_id, delivery_address, delivery_status, driver_id) VALUES
+(1, 1, '321 Side St', 'Delivered', 1),
+(1, 2, '654 Willow Dr', 'Out for Delivery', 2),
+(2, 1, '987 Maple Ct', 'Pending', NULL); -- NULL driver_id (0:M example)
+
+-- Order Items
+INSERT INTO order_item (order_id, item_id, quantity, subtotal) VALUES
+(1, 1, 1, 15.99),
+(1, 2, 1, 14.50),
+(2, 3, 1, 9.99),
+(3, 2, 2, 29.00);
+
+-- Payments
+INSERT INTO payment (order_id, customer_id, payment_amount, payment_method, payment_status) VALUES
+(1, 1, 30.49, 'Credit Card', 'Completed'),
+(2, 1, 9.99, 'PayPal', 'Completed'),
+(3, 2, 29.00, 'Debit Card', 'Pending');
+
+-- ------------------------------
+-- 
+-- ------------------------------
+
