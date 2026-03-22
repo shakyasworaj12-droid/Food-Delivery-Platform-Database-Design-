@@ -1,1 +1,1 @@
-# SQL
+# Food Delivery Platform Database Design 
